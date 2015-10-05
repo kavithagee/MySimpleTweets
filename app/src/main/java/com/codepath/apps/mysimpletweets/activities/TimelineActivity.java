@@ -13,11 +13,15 @@ import android.view.MenuItem;
 import android.widget.AbsListView;
 import android.widget.ListView;
 
+import com.activeandroid.ActiveAndroid;
+import com.activeandroid.Configuration;
+import com.activeandroid.query.Select;
 import com.codepath.apps.mysimpletweets.R;
 import com.codepath.apps.mysimpletweets.TwitterApplication;
 import com.codepath.apps.mysimpletweets.TwitterClient;
 import com.codepath.apps.mysimpletweets.adapter.TweetsArrayAdapter;
 import com.codepath.apps.mysimpletweets.fragments.ComposeDialog;
+import com.codepath.apps.mysimpletweets.models.PersistTweet;
 import com.codepath.apps.mysimpletweets.models.Tweet;
 import com.loopj.android.http.JsonHttpResponseHandler;
 
@@ -26,6 +30,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.List;
 
 public class TimelineActivity extends AppCompatActivity implements ComposeDialog.Listener{
 
@@ -57,7 +62,8 @@ public class TimelineActivity extends AppCompatActivity implements ComposeDialog
         lvTweets.setAdapter(aTweets);
 //        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
 //        setSupportActionBar(toolbar);
-
+        Configuration dbConfiguration = new Configuration.Builder(this).setDatabaseName("tweets.db").create();
+        ActiveAndroid.initialize(dbConfiguration);
         swipeContainer = (SwipeRefreshLayout) findViewById(R.id.swipeContainer);
         swipeContainer.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
             @Override
@@ -140,10 +146,16 @@ public class TimelineActivity extends AppCompatActivity implements ComposeDialog
             return;
         }
         loading = true;
-        client.getHometime(getNew, new JsonHttpResponseHandler(){
+        if (!isNetworkAvailable()) {
+            loadFromDB();
+            return;
+        }
+        final boolean isNew = getNew;
+        client.getHometime(getNew, new JsonHttpResponseHandler() {
+
             @Override
             public void onSuccess(int statusCode, Header[] headers, JSONArray json) {
-                ArrayList<Tweet> tweets = Tweet.fromJSONArray(json);
+                ArrayList<Tweet> tweets = Tweet.fromJSONArray(json, isNew);
                 aTweets.addAll(tweets);
                 Log.v("DEBUG", json.toString());
                 loading = false;
@@ -157,6 +169,16 @@ public class TimelineActivity extends AppCompatActivity implements ComposeDialog
                 swipeContainer.setRefreshing(false);
             }
         });
+    }
+
+    public void loadFromDB() {
+        List<PersistTweet> queryResults = new Select().from(PersistTweet.class)
+                .orderBy("createdat DESC").limit(25).execute();
+        for(int i =0; i < queryResults.size();i++) {
+            aTweets.add(Tweet.fromDB(queryResults.get(i)));
+        }
+        loading = false;
+        swipeContainer.setRefreshing(false);
     }
 
     @Override

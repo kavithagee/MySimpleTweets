@@ -123,25 +123,41 @@ public class Tweet {
         return user;
     }
 
-    public static Tweet fromJSONObject (JSONObject jsonObject) {
+    public static Tweet fromJSONObject (JSONObject jsonObject, boolean isNew, int index) {
         Tweet tweet = new Tweet();
         try {
             tweet.body = jsonObject.getString("text");
             tweet.createdAt = jsonObject.getString("created_at");
             tweet.uid = jsonObject.getString("id");
             tweet.user = User.fromJSONObject(jsonObject.getJSONObject("user"));
+            if (!!isNew) {
+                PersistTweet persistTweet = PersistTweet.load(PersistTweet.class, index);
+                if (persistTweet == null) {
+                    persistTweet = new PersistTweet();
+                    persistTweet.localId = index;
+                }
+
+                persistTweet.profileimageurl = tweet.user.getProfileImageUrl();
+                persistTweet.userid = tweet.user.getUid();
+                persistTweet.username = tweet.user.getName();
+                persistTweet.profilename = tweet.user.getScreenName();
+                persistTweet.createdat = tweet.createdAt;
+                persistTweet.remoteId = tweet.uid;
+                persistTweet.body = tweet.body;
+                persistTweet.save();
+            }
         } catch (JSONException e) {
             e.printStackTrace();
         }
         return tweet;
     }
 
-    public static ArrayList<Tweet> fromJSONArray(JSONArray json) {
+    public static ArrayList<Tweet> fromJSONArray(JSONArray json, boolean isNew) {
         ArrayList<Tweet> tweets = new ArrayList<Tweet>();
         for(int i = 0; i < json.length(); i++) {
             try {
                 JSONObject tweetJson = json.getJSONObject(i);
-                Tweet tweet = Tweet.fromJSONObject(tweetJson);
+                Tweet tweet = Tweet.fromJSONObject(tweetJson, isNew, i);
                 if (tweet != null) {
                     if (i == 0) {
                         TwitterClient.beginSinceId = tweetJson.getLong("id");
@@ -157,6 +173,15 @@ public class Tweet {
             }
         }
         return tweets;
+    }
+
+    public static Tweet fromDB (PersistTweet persistTweet) {
+        Tweet tweet = new Tweet();
+        tweet.body = persistTweet.body;
+        tweet.createdAt = persistTweet.createdat;
+        tweet.uid = Long.valueOf(persistTweet.remoteId).toString();
+        tweet.user = User.fromDB(persistTweet.profilename, persistTweet.username, persistTweet.userid, persistTweet.profileimageurl);
+        return tweet;
     }
 
 

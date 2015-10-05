@@ -100,4 +100,13 @@ public class User {
     public String getProfileImageUrl() {
         return profileImageUrl;
     }
+
+    public static User fromDB(String profilename, String username, long user_id, String profileimageurl) {
+        User user = new User();
+        user.name = username;
+        user.uid = user_id;
+        user.screenName = profilename;
+        user.profileImageUrl = profileimageurl;
+        return user;
+    }
 }
